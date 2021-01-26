@@ -62,12 +62,6 @@ class MultivariateTimeSerie:
     variablesLength: float
         returns the number of time-dependent variables
     
-    
-    
-    Methods
-    -------
-    says(sound=None)
-        Prints the animals name and what sound it makes
     """
 
     def __init__(self):

@@ -58,6 +58,9 @@ def distance_matrix(X, alphas, metadata = np.array([]), metadataAlphas = []):
                 # D_k[k][i][j] = tserieDtwDistance(X[i][k], X[j][k])
                 D_k[k][i][j] = tserieEuclideanDistance(X[i][k], X[j][k])
     
+    D_ks =  np.copy(D_k)
+    
+    
     for k in range(d):
         D_k[k] = np.power(D_k[k], 2) * (alphas[k] ** 2)
         
@@ -84,5 +87,50 @@ def distance_matrix(X, alphas, metadata = np.array([]), metadataAlphas = []):
     
     D = np.power(D, 1/2)
     
-    return D
+    return D, D_ks
+
+
+""" 
+    upon request ranks the time series according to how well each time series separates those subsets.
+    
+    D_list: list of distance matrix D^2_k
+"""
+def subsetSeparationRanking(D_list, u_ind, v_ind):
+    n = len(u_ind)
+    m = len(v_ind)
+    js = []
+    for D_k in D_list:
+        firstTerm = 0
+        for i in u_ind:
+            for j in v_ind:
+                firstTerm = firstTerm + D_k[i][j]
+        firstTerm =  firstTerm / (n * m)
+        
+        s_u = 0
+        secondTerm = 0
+        for i in u_ind:
+            for j in u_ind:
+                secondTerm = secondTerm + D_k[i][j]
+        s_u = secondTerm / (2 * n)
+        secondTerm =  secondTerm / (2 * n * n)
+        
+        s_v = 0
+        thirdTerm = 0
+        for i in v_ind:
+            for j in v_ind:
+                thirdTerm = thirdTerm + D_k[i][j]
+        s_v = thirdTerm / (2 * m)
+        thirdTerm =  thirdTerm / (2 * m * m)
+        
+        
+        num = firstTerm - secondTerm - thirdTerm
+        
+        den = s_u + s_v
+        
+        j_k = num / den
+        
+        js = js + [j_k]
+    return js
+        
+        
     
