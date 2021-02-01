@@ -23,6 +23,8 @@ class TimeSeriesDataset:
         self.isDataEven = False
         self.isDataAligned = False
         
+        self._variablesLimits = {}
+        
         super().__init__()
         
     def getTimeLength(self):
@@ -51,7 +53,7 @@ class TimeSeriesDataset:
         if len(self._categoricalLabels)  == 0:
             self._categoricalLabels = timeSerie.getCategoricalLabels()
         else:
-            assert self._categoricalDimensions == timeSerie.getCategoricalLabels()
+            assert self._categoricalLabels == timeSerie.getCategoricalLabels()
         
         if len(self._numericalLabels) == 0:
             self._numericalLabels = timeSerie.getNumericalLabels()
@@ -144,12 +146,54 @@ class TimeSeriesDataset:
             assert isinstance(mtserie, MultivariateTimeSerie)
             result[id] = mtserie.queryByIndex(beginIndex, endIndex, toList=toList)
         return result
+
+    def getAllMetadata(self):
+        result = {}
+        for id, mtserie in self._timeSeries.items():
+            assert isinstance(mtserie, MultivariateTimeSerie)
+            result[id] = {'metadata': mtserie.metadata, 'numFeatures' : mtserie.numericalFeatures.tolist(), 'numLabels' : mtserie.numericalLabels, 'catFeatures' : mtserie.categoricalFeatures.tolist(), 'catLabels' : mtserie.categoricalLabels}
+        return result
     
     def computeTimeLength(self):
         assert(self.isDataEven)
         assert(self.isDataAligned)
         return next(iter(self._timeSeries.values())).timeLength
+
+    def computeVariablesLimits(self):
+        self._variablesLimits = {}
+        for varName in self._variablesNames:
+            currMin = None
+            currMax = None
+            for mtserie in self._timeSeries.values():
+                assert isinstance(mtserie, MultivariateTimeSerie)
+                minValue = mtserie.getSerie(varName).min()
+                maxValue = mtserie.getSerie(varName).max()
+                
+                if(currMin == None):
+                    currMin = minValue
+                elif currMin > minValue:
+                    currMin = minValue
+                    
+                if(currMax == None):
+                    currMax = maxValue
+                elif currMax < maxValue:
+                    currMax = maxValue
+            self._variablesLimits[varName] = [currMin, currMax]
     
+    def getVariablesLimits(self):
+        return self._variablesLimits
+
+    def getVariableLimits(self, varName):
+        return self._variablesLimits[varName]
+
+    def setVariableLimits(self, varName, minValue, maxValue):
+        self._variablesLimits[varName] = [minValue, maxValue]
+        
+    def removeVariable(self, varName):
+        for mtserie in self._timeSeries.values():
+            assert isinstance(mtserie, MultivariateTimeSerie)
+            mtserie.removeTimeSerie(varName)
+        
     # todo check utility
     # def areNumericalFeaturesEven(self):
     #     numericalFeaturesLength = len(next(iter(self._timeSeries.values())).numericalFeatures)

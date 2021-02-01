@@ -134,6 +134,14 @@ class MultivariateTimeSerie:
     def getSerie(self, dimension):
         return self.variables[dimension]
 
+    def removeTimeSerie(self, varName):
+        del self.variables[varName]
+        self.variablesNames.remove(varName)
+        
+        if self.isDataDated and self.isDataDatedPerVariable:
+            del self.variablesDates[varName]
+
+        self.variablesLength = self.variablesLength - 1
     
     def getCategoricalFeatures(self):
         return self.categoricalFeatures
@@ -273,7 +281,7 @@ class MultivariateTimeSerie:
     
     @staticmethod
     def fromDict(X, numericalFeatures = np.array([]), \
-        categoricalFeatures = np.array([]), dates = None,\
+        categoricalFeatures = np.array([]), dates = np.array([]),\
         metadata = {}, categoricalLabels = [], numericalLabels = []):
         assert isinstance(X, dict)
         assert isinstance(dates, dict) or isinstance(dates, np.ndarray)
@@ -289,8 +297,9 @@ class MultivariateTimeSerie:
         mtserie.variablesNames = list(X.keys())
         
         if isinstance(dates, np.ndarray):
-            mtserie.isDataDatedPerVariable = False
-            mtserie.isDataDated = True
+            if len(dates) != 0:
+                mtserie.isDataDatedPerVariable = False
+                mtserie.isDataDated = True
         elif isinstance(dates, dict):
             mtserie.isDataDatedPerVariable = True
             mtserie.isDataDated = True
@@ -323,7 +332,7 @@ class MultivariateTimeSerie:
             mtserie.numericalLabels = numericalLabels
         
         if len(categoricalLabels) != 0:
-            mtserie.categorialLabels = categoricalLabels
+            mtserie.categoricalLabels = categoricalLabels
                
         # saving the time series data
         mtserie.variables = X
