@@ -26,7 +26,7 @@ class TimeSeriesDataset:
         self._variablesLimits = {}
         
         super().__init__()
-        
+
     def getTimeLength(self):
         return self._timeLength
 
@@ -155,10 +155,12 @@ class TimeSeriesDataset:
         return result
     
     def computeTimeLength(self):
-        assert(self.isDataEven)
-        assert(self.isDataAligned)
-        return next(iter(self._timeSeries.values())).timeLength
-
+        
+        if self.isDataEven and self.isDataAligned:
+            return next(iter(self._timeSeries.values())).timeLength
+        elif self.isDataAligned:
+            return [e.timeLength for e in self._timeSeries.values()]
+        
     def computeVariablesLimits(self):
         self._variablesLimits = {}
         for varName in self._variablesNames:
