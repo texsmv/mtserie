@@ -1,10 +1,10 @@
-from .time_serie import MultivariateTimeSerie
+from .mtserie import MTSerie
 import numpy as np
 
-class TimeSeriesDataset:
-    """summary for [TimeSeriesDataset]
+class MTSerieDataset:
+    """summary for [MTSerieDataset]
     
-        This class assumes that the [MultivariateTimeSerie] objects use the same
+        This class assumes that the [MTSerie] objects use the same
         variables, although they can be uneven or misaligned with 
         respect to time
     """
@@ -37,7 +37,7 @@ class TimeSeriesDataset:
         return self._variablesLength
     
     def add(self, timeSerie, identifier):
-        assert isinstance(timeSerie, MultivariateTimeSerie)
+        assert isinstance(timeSerie, MTSerie)
         assert isinstance(identifier, str)
         
         self._timeSeries[identifier] = timeSerie
@@ -81,7 +81,7 @@ class TimeSeriesDataset:
         X = []
         for id in self._ids:
             mtserie = self._timeSeries[id]
-            assert isinstance(mtserie, MultivariateTimeSerie)
+            assert isinstance(mtserie, MTSerie)
             x_i = []
             for dim in self._variablesNames:
                 x_i.append(mtserie.getSerie(dim))
@@ -101,7 +101,7 @@ class TimeSeriesDataset:
         M = []
         for id in self._ids:    
             mtserie = self._timeSeries[id]
-            assert isinstance(mtserie, MultivariateTimeSerie)
+            assert isinstance(mtserie, MTSerie)
             M.append(mtserie.getNumericalFeatures())
         return np.array(M)
     
@@ -111,7 +111,7 @@ class TimeSeriesDataset:
         M = []
         for id in self._ids:
             mtserie = self._timeSeries[id]
-            assert isinstance(mtserie, MultivariateTimeSerie)
+            assert isinstance(mtserie, MTSerie)
             M.append(mtserie.getCategoricalFeatures())
         return np.array(M)
     
@@ -121,7 +121,7 @@ class TimeSeriesDataset:
             return False
         
         for (_, tserie) in self._timeSeries.items():
-            assert isinstance(tserie, MultivariateTimeSerie)
+            assert isinstance(tserie, MTSerie)
             if not tserie.isDataEven:
                 return False
             if isinstance(tserie.timeLength, list):
@@ -132,7 +132,7 @@ class TimeSeriesDataset:
     
     def computeAlignment(self):
         for (_, tserie) in self._timeSeries.items():
-            assert isinstance(tserie, MultivariateTimeSerie)
+            assert isinstance(tserie, MTSerie)
             if not tserie.isDataAligned:
                 return False
         return True
@@ -143,14 +143,14 @@ class TimeSeriesDataset:
         assert isinstance(toList, bool)
         result = {}
         for id, mtserie in self._timeSeries.items():
-            assert isinstance(mtserie, MultivariateTimeSerie)
+            assert isinstance(mtserie, MTSerie)
             result[id] = mtserie.queryByIndex(beginIndex, endIndex, toList=toList)
         return result
 
     def getAllMetadata(self):
         result = {}
         for id, mtserie in self._timeSeries.items():
-            assert isinstance(mtserie, MultivariateTimeSerie)
+            assert isinstance(mtserie, MTSerie)
             result[id] = {'metadata': mtserie.metadata, 'numFeatures' : mtserie.numericalFeatures.tolist(), 'numLabels' : mtserie.numericalLabels, 'catFeatures' : mtserie.categoricalFeatures.tolist(), 'catLabels' : mtserie.categoricalLabels}
         return result
     
@@ -167,7 +167,7 @@ class TimeSeriesDataset:
             currMin = None
             currMax = None
             for mtserie in self._timeSeries.values():
-                assert isinstance(mtserie, MultivariateTimeSerie)
+                assert isinstance(mtserie, MTSerie)
                 minValue = mtserie.getSerie(varName).min()
                 maxValue = mtserie.getSerie(varName).max()
                 
@@ -193,7 +193,7 @@ class TimeSeriesDataset:
         
     def removeVariable(self, varName):
         for mtserie in self._timeSeries.values():
-            assert isinstance(mtserie, MultivariateTimeSerie)
+            assert isinstance(mtserie, MTSerie)
             mtserie.removeTimeSerie(varName)
         
     # todo check utility

@@ -1,9 +1,8 @@
-from numpy.testing._private.utils import assert_
 import pandas as pd
 import numpy as np
 
 
-class MultivariateTimeSerie:
+class MTSerie:
     """
     A class used to represent multivariate time series
 
@@ -210,7 +209,7 @@ class MultivariateTimeSerie:
         assert isinstance(categoricalFeatures, np.ndarray)
         assert isinstance(metadata, dict)
         
-        mtserie = MultivariateTimeSerie()
+        mtserie = MTSerie()
         
         if len(dimensions) != 0:
             assert len(dimensions) == len(X)
@@ -291,7 +290,7 @@ class MultivariateTimeSerie:
         assert isinstance(categoricalFeatures, np.ndarray)
         assert isinstance(metadata, dict)
         
-        mtserie = MultivariateTimeSerie()
+        mtserie = MTSerie()
         
         mtserie.isAnyVariableNamed = True
         mtserie.variablesNames = list(X.keys())
