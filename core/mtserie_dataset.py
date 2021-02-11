@@ -9,7 +9,9 @@ class MTSerieDataset:
         respect to time
     """
     def __init__(self):
+        self._originalTimeSeries = {}
         self._timeSeries = {}
+        
         
         self._timeLength = -1
         self._instanceLength = 0
@@ -196,22 +198,3 @@ class MTSerieDataset:
             assert isinstance(mtserie, MTSerie)
             mtserie.removeTimeSerie(varName)
         
-    # todo check utility
-    # def areNumericalFeaturesEven(self):
-    #     numericalFeaturesLength = len(next(iter(self._timeSeries.values())).numericalFeatures)
-    #     for (_, tserie) in self._timeSeries.items():
-    #         if numericalFeaturesLength != len(tserie.numericalFeatures):
-    #             return False
-            
-    #     return True
-
-    # def areCategoricalFeaturesEven(self):
-    #     categoricalFeaturesLength = len(next(iter(self._timeSeries.values())).categoricalFeatures)
-    #     for (_, tserie) in self._timeSeries.items():
-    #         if categoricalFeaturesLength != len(tserie.categoricalFeatures):
-    #             return False
-        
-    #     return True
-            
-    
-    

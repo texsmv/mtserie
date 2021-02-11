@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn import manifold
 
-from core.mtserie import MTSerie
+from .mtserie import MTSerie
 from .distances import ts_euclidean_distance, ts_dtw_distance, ts_mp_distance
 
 def euclidean_distance_matrix(mtseries, variables, alphas):

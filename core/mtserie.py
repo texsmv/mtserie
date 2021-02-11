@@ -1,5 +1,7 @@
+from mts.core.utils import allowed_downsample_rule
 import pandas as pd
 import numpy as np
+import copy
 
 
 class MTSerie:
@@ -94,6 +96,48 @@ class MTSerie:
         self.variablesLength = -1
         
         super().__init__()
+    
+    def resample(self, rule):
+        assert self.isDataEven and self.isDataAligned
+        assert self.isDataDated and not self.isDataDatedPerVariable
+        
+        df = pd.DataFrame(self.variables)
+        df['Datetime'] = self.dates
+        df = df.set_index('Datetime')
+        df = df.resample(rule).mean()
+        
+        mtserie = self.clone()
+        for varName in self.variablesNames:
+            mtserie.variables[varName] = df[varName].to_numpy()
+            
+        mtserie.dates = df.index.to_numpy()
+        mtserie.timeLength = mtserie.computeTimeLength()
+        # todo perhaps compute other properties that could have changed
+        
+        return mtserie
+
+    def clone(self):
+        mtserie = MTSerie()
+        assert isinstance(mtserie, MTSerie)
+        mtserie.variables = copy.deepcopy(self.variables)
+        mtserie.dates = copy.deepcopy(self.dates)
+        mtserie.variablesNames = copy.deepcopy(self.variablesNames)
+        mtserie.dates = copy.deepcopy(self.dates)
+        mtserie.metadata = copy.deepcopy(self.metadata)
+        mtserie.categoricalFeatures = copy.deepcopy(self.categoricalFeatures)
+        mtserie.categoricalLabels = copy.deepcopy(self.categoricalLabels)
+        mtserie.isDataDated = copy.deepcopy(self.isDataDated)
+        mtserie.isDataDatedPerVariable = copy.deepcopy(self.isDataDatedPerVariable)
+        mtserie.isDataEven = copy.deepcopy(self.isDataEven)
+        mtserie.isDataAligned = copy.deepcopy(self.isDataAligned)
+        mtserie.isAnyVariableNamed = copy.deepcopy(self.isAnyVariableNamed)
+        mtserie.hasNumericalFeatures = copy.deepcopy(self.hasNumericalFeatures)
+        mtserie.hasCategoricalFeatures = copy.deepcopy(self.hasCategoricalFeatures)
+        mtserie.hasMetadata = copy.deepcopy(self.hasMetadata)
+        mtserie.timeLength = copy.deepcopy(self.timeLength)
+        mtserie.variablesLength = copy.deepcopy(self.variablesLength)
+        return mtserie
+        
     
     def computeUniformity(self):
         seriesSize = None

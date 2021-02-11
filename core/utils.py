@@ -136,3 +136,39 @@ def subsetSeparationRanking(D_list, u_ind, v_ind):
         
         js = js + [j_k]
     return js
+
+
+def allowed_downsample_rule(df):
+    timedelta = df.index.to_series().diff().median().to_numpy()
+    
+    years = timedelta.astype('timedelta64[Y]') / np.timedelta64(1, 'Y')
+    months = timedelta.astype('timedelta64[M]') / np.timedelta64(1, 'M')
+    days = timedelta.astype('timedelta64[D]') / np.timedelta64(1, 'D')
+    hours = timedelta.astype('timedelta64[h]') / np.timedelta64(1, 'h')
+    minutes = timedelta.astype('timedelta64[m]') / np.timedelta64(1, 'm')
+    seconds = timedelta.astype('timedelta64[s]') / np.timedelta64(1, 's')
+    nanoSeconds = timedelta.astype('timedelta64[ns]') / np.timedelta64(1, 'ns')
+    
+    if years != 0:
+        return []
+    
+    if months != 0:
+        return ['Y']
+
+    if days != 0:
+        return ['Y', 'M']
+
+    if hours != 0:
+        return ['Y', 'M', 'D']
+    
+    if minutes != 0:
+        return ['Y', 'M', 'D', 'h']
+    
+    if seconds != 0:
+        return ['Y', 'M', 'D', 'h', 'm']
+
+    if nanoSeconds != 0:
+        return ['Y', 'M', 'D', 'h', 'm', 's']
+
+    return []
+    
