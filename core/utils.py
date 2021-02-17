@@ -1,5 +1,6 @@
 import numpy as np
 import json
+from dateutil import parser
 
 
 def is_array_like(a):
@@ -137,10 +138,22 @@ def subsetSeparationRanking(D_list, u_ind, v_ind):
         js = js + [j_k]
     return js
 
-
-def allowed_downsample_rule(df):
-    timedelta = df.index.to_series().diff().median().to_numpy()
+def _timedelta_unit_to_resample_rule(unit):
+    if unit == 'Y':
+        return 'A'
+    elif unit == 'M':
+        return 'M'
+    elif unit == 'D':
+        return 'D'
+    elif unit == 'h':
+        return 'H'
+    elif unit == 'm':
+        return 'T'
+    elif unit == 's':
+        return 'S'
     
+
+def _timedeltaUnits(timedelta):
     years = timedelta.astype('timedelta64[Y]') / np.timedelta64(1, 'Y')
     months = timedelta.astype('timedelta64[M]') / np.timedelta64(1, 'M')
     days = timedelta.astype('timedelta64[D]') / np.timedelta64(1, 'D')
@@ -148,27 +161,67 @@ def allowed_downsample_rule(df):
     minutes = timedelta.astype('timedelta64[m]') / np.timedelta64(1, 'm')
     seconds = timedelta.astype('timedelta64[s]') / np.timedelta64(1, 's')
     nanoSeconds = timedelta.astype('timedelta64[ns]') / np.timedelta64(1, 'ns')
-    
-    if years != 0:
-        return []
-    
-    if months != 0:
-        return ['Y']
+    return {'years': years, 'months': months, 'days':days, 'hours':hours, 'minutes':minutes, 'seconds':seconds, 'nanoseconds':nanoSeconds}
 
-    if days != 0:
-        return ['Y', 'M']
-
-    if hours != 0:
-        return ['Y', 'M', 'D']
+def allowed_downsample_rule(df):
+    timeMedia = df.index.to_series().diff().median().to_numpy()
+    timeMediaUnits = _timedeltaUnits(timeMedia)
     
-    if minutes != 0:
-        return ['Y', 'M', 'D', 'h']
+    begin = df.index[0]
+    end = df.index[-1]
+    timeLength = (end - begin).to_numpy()
+    print(type(timeMedia))
+    print(type(timeLength))
+    timeLengthUnits = _timedeltaUnits(timeLength)
     
-    if seconds != 0:
-        return ['Y', 'M', 'D', 'h', 'm']
-
-    if nanoSeconds != 0:
-        return ['Y', 'M', 'D', 'h', 'm', 's']
-
-    return []
+    minUnitSize = 3
     
+    units = []
+    print(timeMediaUnits)
+    print(timeLengthUnits)
+    
+    
+    if timeMediaUnits['years'] != 0:
+        units = []
+    
+    if timeMediaUnits['months'] != 0 :
+        units = ['Y']
+
+    if timeMediaUnits['days'] != 0 and timeLengthUnits['months'] >= minUnitSize:
+        units = ['Y', 'M']
+
+    if timeMediaUnits['hours'] != 0 and timeLengthUnits['days'] >= minUnitSize:
+        units = ['Y', 'M', 'D']
+    
+    if timeMediaUnits['minutes'] != 0 and timeLengthUnits['hours'] >= minUnitSize:
+        units = ['Y', 'M', 'D', 'h']
+    
+    if timeMediaUnits['seconds'] != 0 and timeLengthUnits['minutes'] >= minUnitSize:
+        units = ['Y', 'M', 'D', 'h', 'm']
+
+    if timeMediaUnits['nanoseconds'] != 0 and timeLengthUnits['seconds'] >= minUnitSize:
+        units = ['Y', 'M', 'D', 'h', 'm', 's']
+
+    rules = []
+    for r in units:
+        if r == 'Y' and timeLengthUnits['years'] >= minUnitSize:
+            rules = rules  + [_timedelta_unit_to_resample_rule(r)]
+        elif r == 'M' and timeLengthUnits['months'] >= minUnitSize:
+            rules = rules  + [_timedelta_unit_to_resample_rule(r)]
+        elif r == 'D' and timeLengthUnits['days'] >= minUnitSize:
+            rules = rules  + [_timedelta_unit_to_resample_rule(r)]
+        elif r == 'h' and timeLengthUnits['hours'] >= minUnitSize:
+            rules = rules  + [_timedelta_unit_to_resample_rule(r)]
+        elif r == 'm' and timeLengthUnits['minutes'] >= minUnitSize:
+            rules = rules  + [_timedelta_unit_to_resample_rule(r)]
+        elif r == 's' and timeLengthUnits['seconds'] >= minUnitSize:
+            rules = rules  + [_timedelta_unit_to_resample_rule(r)]
+            
+    return rules
+
+
+def strToDateTime64(dateStr):
+    return np.datetime64(parser.parse(dateStr))
+
+def strToDateTime(dateStr):
+    return parser.parse(dateStr)

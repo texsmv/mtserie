@@ -1,7 +1,15 @@
-from mts.core.utils import allowed_downsample_rule
+from numpy.lib.arraysetops import isin
+from .utils import allowed_downsample_rule
 import pandas as pd
 import numpy as np
 import copy
+from .utils import is_array_like, to_np_array
+from enum import Enum
+
+class IndexType(Enum):
+    INT = 0
+    CATEGORICAL = 1
+    DATETIME = 2
 
 
 class MTSerie:
@@ -64,327 +72,198 @@ class MTSerie:
         returns the number of time-dependent variables
     
     """
+    
+    
+    @property
+    def timeLen(self) -> int:
+        return len(self.dataframe)
+
+    @property
+    def variablesLen(self) -> int:
+        return len(self.dataframe.columns)
+
+    @property
+    def indexType(self):
+        return self._indexType
+    
+    @indexType.setter
+    def indexType(self, value):
+        self._indexType = value
+        
+    @property
+    def isDataDated(self) -> bool:
+        return self._indexType == IndexType.DATETIME
+    
+    @property
+    def labels(self) -> list:
+        return self.dataframe.columns.tolist()
+    
+    @property
+    def indexTypeStr(self) -> str:
+        if self._indexType == IndexType.INT:
+            return "intIndex"
+        elif self._indexType == IndexType.CATEGORICAL:
+            return "categoricalIndex"
+        elif self._indexType == IndexType.DATETIME:
+            return "datetimeIndex"
+    
+    @property
+    def datetimes(self) -> np.ndarray:
+        if not self.isDataDated:
+            return None
+        return self.dataframe.index.to_numpy()
+        
+    @property
+    def datetimeLimits(self) -> list:
+        if not self.isDataDated:
+            return None
+        return [self.dataframe.index[0].to_numpy(), self.dataframe.index[-1].to_numpy()]
+    
+    @property
+    def categoricalLabels(self) -> list:
+        return list(self.categoricalFeatures.keys())
+    
+    @property
+    def numericalLabels(self) -> list:
+        return list(self.numericalFeatures.keys())
+    
+    def __str__(self):
+        return str(self.dataframe) + "\n\n" + "index type: " + self.indexTypeStr
 
     def __init__(self):
-        self.variablesNames = []
-        self.variables = {}
-        
-        self.dates = np.array([])
-        self.variablesDates = {}
-        
-        self.metadata = {}
-        
-        self.categoricalFeatures = np.array([])
-        self.categoricalLabels = []
-        
-        self.numericalFeatures = np.array([])
-        self.numericalLabels = []
-        
-        self.isDataDated = False
-        self.isDataDatedPerVariable = False
-        
-        self.isDataEven = False
-        self.isDataAligned = False
-        
-        self.isAnyVariableNamed = False
-        
-        self.hasNumericalFeatures = False
-        self.hasCategoricalFeatures = False
-        self.hasMetadata = False
-        
-        self.timeLength = -1
-        self.variablesLength = -1
+        self.dataframe = pd.DataFrame()
+        self.info = {}
+        self.categoricalFeatures = {}
+        self.numericalFeatures = {}
+        self._indexType = IndexType.INT
         
         super().__init__()
     
+    def range_query(self, begin, end):
+        mask = (self.dataframe.index >= begin) & (self.dataframe.index < end)
+        queryMTSerie = MTSerie()
+        queryMTSerie.dataframe = self.dataframe[mask]
+        queryMTSerie.info = self.info
+        queryMTSerie.categoricalFeatures = self.categoricalFeatures
+        queryMTSerie.numericalFeatures = self.numericalFeatures
+        queryMTSerie.indexType = self.indexType
+        return queryMTSerie
+
     def resample(self, rule):
-        assert self.isDataEven and self.isDataAligned
-        assert self.isDataDated and not self.isDataDatedPerVariable
-        
-        df = pd.DataFrame(self.variables)
-        df['Datetime'] = self.dates
-        df = df.set_index('Datetime')
-        df = df.resample(rule).mean()
-        
-        mtserie = self.clone()
-        for varName in self.variablesNames:
-            mtserie.variables[varName] = df[varName].to_numpy()
-            
-        mtserie.dates = df.index.to_numpy()
-        mtserie.timeLength = mtserie.computeTimeLength()
-        # todo perhaps compute other properties that could have changed
-        
-        return mtserie
+        assert self.isDataDated
+        downsampledMTSerie = self.clone()
+        downsampledMTSerie.dataframe = self.dataframe.resample(rule).mean()
+        return downsampledMTSerie
+    
+    def downsample_rules(self) -> list:
+        return allowed_downsample_rule(self.dataframe)
 
     def clone(self):
         mtserie = MTSerie()
         assert isinstance(mtserie, MTSerie)
-        mtserie.variables = copy.deepcopy(self.variables)
-        mtserie.dates = copy.deepcopy(self.dates)
-        mtserie.variablesNames = copy.deepcopy(self.variablesNames)
-        mtserie.dates = copy.deepcopy(self.dates)
-        mtserie.metadata = copy.deepcopy(self.metadata)
+        mtserie.dataframe = self.dataframe.copy(deep=True)
+        mtserie.info = copy.deepcopy(self.info)
+        mtserie.numericalFeatures = copy.deepcopy(self.numericalFeatures)
         mtserie.categoricalFeatures = copy.deepcopy(self.categoricalFeatures)
-        mtserie.categoricalLabels = copy.deepcopy(self.categoricalLabels)
-        mtserie.isDataDated = copy.deepcopy(self.isDataDated)
-        mtserie.isDataDatedPerVariable = copy.deepcopy(self.isDataDatedPerVariable)
-        mtserie.isDataEven = copy.deepcopy(self.isDataEven)
-        mtserie.isDataAligned = copy.deepcopy(self.isDataAligned)
-        mtserie.isAnyVariableNamed = copy.deepcopy(self.isAnyVariableNamed)
-        mtserie.hasNumericalFeatures = copy.deepcopy(self.hasNumericalFeatures)
-        mtserie.hasCategoricalFeatures = copy.deepcopy(self.hasCategoricalFeatures)
-        mtserie.hasMetadata = copy.deepcopy(self.hasMetadata)
-        mtserie.timeLength = copy.deepcopy(self.timeLength)
-        mtserie.variablesLength = copy.deepcopy(self.variablesLength)
+        mtserie.indexType = self.indexType
         return mtserie
+    
+    def get_serie(self, label):
+        return self.dataframe[label].to_numpy()
+    
+    def remove_serie(self, label):
+        del self.dataframe.columns[label]
+    
+    def zNormalize(self, labels = []):
+        _labels = labels
+        if len(labels) == 0:
+            _labels = self.labels
+        for label in _labels:
+            self.dataframe[label] = (self.dataframe[label] - self.dataframe[label].mean()) / self.dataframe[label].std(ddof=0)
+    
         
+    # !deprecated
+    def normalize_data(self):
+        for variableName in self.labels:
+            x = self.tseries[variableName]
+            self.tseries[variableName] = (x-min(x))/(max(x)-min(x))
     
-    def computeUniformity(self):
-        seriesSize = None
-        for (_, v) in self.variables.items():
-            assert isinstance(v, np.ndarray)
-            if seriesSize == None:
-                seriesSize = len(v)
-            elif seriesSize != len(v):
-                return False
-        return True
-    
-    def computeAlignment(self):
-        if self.isDataDated:
-            if not self.isDataDatedPerVariable:
-                return True
-            elif not self.isDataEven:
-                return False
-            else:
-                for i in range(self.timeLength):
-                    temp = self.variablesDates[self.variablesNames[0]][i]
-                    for j in range(self.variablesLength):
-                        if temp != self.variablesDates[self.variablesNames[j]][i]:
-                            return False
-                return True
+    def plot(self, labels = None):
+        if is_array_like(labels):
+            self.dataframe[labels].plot()
         else:
-            return True
-
-    def computeTimeLength(self):
-        if self.isDataEven:
-            return len(next(iter(self.variables.values())))
-        else:
-            return [len(serie) for (_, serie) in self.variables.items()]
+            self.dataframe.plot()
     
-    def getVariablesNames(self):
-        return self.variablesNames
-    
-    def getSerie(self, dimension):
-        return self.variables[dimension]
-
-    def removeTimeSerie(self, varName):
-        del self.variables[varName]
-        self.variablesNames.remove(varName)
-        
-        if self.isDataDated and self.isDataDatedPerVariable:
-            del self.variablesDates[varName]
-
-        self.variablesLength = self.variablesLength - 1
-    
-    def getCategoricalFeatures(self):
-        return self.categoricalFeatures
-
-    def getCategoricalLabels(self):
-        return self.categoricalLabels
-    
-    def getNumericalLabels(self):
-        return self.numericalLabels
-
-    def getNumericalFeatures(self):
-        return self.numericalFeatures
-    
-    def getDatesRange(self):
-        if self.isDataDatedPerVariable:
-            rangeDict = {}
-            for variableName in self.variablesNames:
-                rangeDict[variableName] = (self.variablesDates[variableName][0], self.variablesDates[variableName][-1])
-            return rangeDict
-        else:
-            return (self.dates[0], self.dates[-1])
-        
-    # ! carefull
-    def setSameRange(self, n):
-        for dimension in self.variablesNames:
-            self.variablesDates[dimension] = self.variablesDates[dimension][-n: ]
-            self.variables[dimension] = self.variables[dimension] [-n:]
-        self.length = self.calculateLength()
-        
-    def normalizeData(self):
-        for variableName in self.variablesNames:
-            x = self.variables[variableName]
-            self.variables[variableName] = (x-min(x))/(max(x)-min(x))
-    
-    def at(self, d):
-        if isinstance(d, str):
-            return self.variables[d]
-        else:
-            return self.variables[str(d)]
-
-    def queryByIndex(self, beginIndex, endIndex, toList = False):
-        assert self.isDataEven
-        assert isinstance(toList, bool)
-        result = {}
-        for variableName in self.variablesNames:
-            serie = self.variables[variableName]
-            assert isinstance(serie, np.ndarray)
-            if toList:
-                result[variableName] = serie[beginIndex: endIndex].tolist()
-            else:
-                result[variableName] = serie[beginIndex: endIndex]
-        return result
-    
-    
-    @staticmethod
-    def fromNumpy(X, numericalFeatures = np.array([]), \
-        categoricalFeatures = np.array([]), \
-        dimensions = [], dates = [], metadata = {}, \
-        categoricalLabels = [], numericalLabels = []):
-        assert isinstance(X, np.ndarray) or isinstance(X, list)
-        assert isinstance(dimensions, list)
-        assert isinstance(dates, list)
-        assert isinstance(categoricalLabels, list)
-        assert isinstance(numericalLabels, list)
-        assert isinstance(numericalFeatures, np.ndarray)
-        assert isinstance(categoricalFeatures, np.ndarray)
-        assert isinstance(metadata, dict)
-        
+    @staticmethod 
+    def fromDArray(X, index = [], labels = [], info = {}, categoricalFeatures = {}, numericalFeatures = {}):
+        assert is_array_like(X)
+        assert is_array_like(index)
+        assert is_array_like(labels)
         mtserie = MTSerie()
         
-        if len(dimensions) != 0:
-            assert len(dimensions) == len(X)
-            mtserie.isAnyVariableNamed = True
-            mtserie.variablesNames = dimensions
-        else:
-            mtserie.isAnyVariableNamed = False
+        assert isinstance(mtserie, MTSerie)
+        
+        _labels = []
+        _data = None
+        _index = []
             
-            mtserie.variablesNames = [str(i) for i in range(len(X))]
+        _data = to_np_array(X).transpose()
         
-        if len(dates) != 0:
-            assert len(dates) == len(X) or len(dates) == 1
-            mtserie.isDataDated = True
-            if(len(dates) != 1):
-                mtserie.isDataDatedPerVariable = True
-        
-        
-        # saving the numerical features
-        if len(numericalFeatures) != 0:
-            mtserie.hasNumericalFeatures = True
-            mtserie.numericalFeatures = numericalFeatures
-        
-        # saving the categorical features
-        if len(categoricalFeatures) != 0:
-            mtserie.hasCategoricalFeatures = True
-            mtserie.categoricalFeatures = categoricalFeatures
-            
-        # saving the metadata
-        if len(metadata) != 0:
-            mtserie.hasMetadata = True
-            mtserie.metadata = metadata
-        
-        if len(numericalLabels) != 0:
-            mtserie.numericalLabels = numericalLabels
-        
-        if len(categoricalLabels) != 0:
-            mtserie.categorialLabels = categoricalLabels
-               
-        # saving the time series data
-        if(mtserie.isAnyVariableNamed):
-            for i in range(len(X)):
-                mtserie.variables[dimensions[i]] = X[i]
+        if len(labels) != 0:
+            assert (_data.shape[1] == len(labels))
+            _labels = labels
         else:
-            for i in range(len(X)):
-                mtserie.variables[str(i)] = X[i]
-
-        # saving the dates
-        if(mtserie.isDataDated):
-            if(mtserie.hasDatesPerDimension):
-                for i in range(len(X)):
-                    if(mtserie.isAnyVariableNamed):
-                        mtserie.variablesDates[dimensions[i]] = X[i]
-                    else:
-                        mtserie.variablesDates[str(i)] = X[i]
+            _labels = np.array([str(i) for i in range(len(X))])
+        
+        if len(index) != 0:
+            _index = to_np_array(index)
+            if type(_index[0]) == np.datetime64:
+                mtserie.indexType = IndexType.DATETIME
             else:
-                mtserie.dates = dates[0]
-                
+                mtserie.indexType = IndexType.CATEGORICAL
+        else:
+            mtserie.indexType = IndexType.INT
+            _index = np.array(range(_data.shape[0]))
         
-        
-        
-        # calculate internal variables
-        mtserie.variablesLength = len(mtserie.variablesNames)
-        mtserie.isDataEven = mtserie.computeUniformity()
-        mtserie.timeLength = mtserie.computeTimeLength()
-        mtserie.isDataAligned = mtserie.computeAlignment()
+        mtserie.dataframe = pd.DataFrame(data=_data, columns=_labels, 
+                                         index=_index)
+        mtserie.info = info
+        mtserie.categoricalFeatures = categoricalFeatures
+        mtserie.numericalFeatures = numericalFeatures
         
         return mtserie
     
-    @staticmethod
-    def fromDict(X, numericalFeatures = np.array([]), \
-        categoricalFeatures = np.array([]), dates = np.array([]),\
-        metadata = {}, categoricalLabels = [], numericalLabels = []):
+    @staticmethod 
+    def fromDict(X, index = [], info = {}, categoricalFeatures = {}, numericalFeatures = {}):
         assert isinstance(X, dict)
-        assert isinstance(dates, dict) or isinstance(dates, np.ndarray)
-        assert isinstance(categoricalLabels, list)
-        assert isinstance(numericalLabels, list)
-        assert isinstance(numericalFeatures, np.ndarray)
-        assert isinstance(categoricalFeatures, np.ndarray)
-        assert isinstance(metadata, dict)
-        
+        assert is_array_like(index)
         mtserie = MTSerie()
         
-        mtserie.isAnyVariableNamed = True
-        mtserie.variablesNames = list(X.keys())
+        assert isinstance(mtserie, MTSerie)
         
-        if isinstance(dates, np.ndarray):
-            if len(dates) != 0:
-                mtserie.isDataDatedPerVariable = False
-                mtserie.isDataDated = True
-        elif isinstance(dates, dict):
-            mtserie.isDataDatedPerVariable = True
-            mtserie.isDataDated = True
+        _labels = []
+        _data = None
+        _index = []
             
-        # saving the dates
-        if(mtserie.isDataDated):
-            if(mtserie.isDataDatedPerVariable):
-                mtserie.variablesDates = dates
+        _data = to_np_array(list(X.values())).transpose()
+        
+        _labels = np.array(list(X.keys()))
+        
+        if len(index) != 0:
+            _index = to_np_array(index)
+            if type(_index[0]) == np.datetime64:
+                mtserie.indexType = IndexType.DATETIME
             else:
-                mtserie.dates = dates
-                
-            
-        # saving the numerical features
-        if len(numericalFeatures) != 0:
-            mtserie.hasNumericalFeatures = True
-            mtserie.numericalFeatures = numericalFeatures
+                mtserie.indexType = IndexType.CATEGORICAL
+        else:
+            mtserie.indexType = IndexType.INT
+            _index = np.array(range(_data.shape[0]))
         
+        mtserie.dataframe = pd.DataFrame(data=_data, columns=_labels, 
+                                         index=_index)
+        mtserie.info = info
+        mtserie.categoricalFeatures = categoricalFeatures
+        mtserie.numericalFeatures = numericalFeatures
         
-        # saving the categorical features
-        if len(categoricalFeatures) != 0:
-            mtserie.hasCategoricalFeatures = True
-            mtserie.categoricalFeatures = categoricalFeatures
-            
-        # saving the metadata
-        if len(metadata) != 0:
-            mtserie.hasMetadata = True
-            mtserie.metadata = metadata
-        
-        if len(numericalLabels) != 0:
-            mtserie.numericalLabels = numericalLabels
-        
-        if len(categoricalLabels) != 0:
-            mtserie.categoricalLabels = categoricalLabels
-               
-        # saving the time series data
-        mtserie.variables = X
-       
-        
-        # calculate internal variables
-        mtserie.variablesLength = len(mtserie.variablesNames)
-        mtserie.isDataEven = mtserie.computeUniformity()
-        mtserie.timeLength = mtserie.computeTimeLength()
-        mtserie.isDataAligned = mtserie.computeAlignment()
-                
         return mtserie
+    

@@ -1,6 +1,11 @@
 import numpy as np
 from tslearn.metrics import dtw
 from .matrix_profile import subsequences_indexes, join_matrix_profile, calc_MPdist
+from enum import Enum
+class DistanceType(Enum):
+    EUCLIDEAN = 0
+    DTW = 1
+    PDIST = 2
 
 def ts_euclidean_distance(ts_A, ts_B):
     """

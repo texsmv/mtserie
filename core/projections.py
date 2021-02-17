@@ -1,8 +1,49 @@
 import numpy as np
 from sklearn import manifold
-
 from .mtserie import MTSerie
-from .distances import ts_euclidean_distance, ts_dtw_distance, ts_mp_distance
+from .distances import ts_euclidean_distance, ts_dtw_distance, ts_mp_distance, DistanceType
+
+def distance_matrix(mtseries, variables = [], alphas = [], distanceType = DistanceType.EUCLIDEAN, L = 10):
+    """
+    Gets Distance Matrix of multivariate time series using euclidean distance on the selected variables and using the provided alphas
+
+    Args:
+        mtseries (List of MTSerie): Multivariate time series list
+        variables (List of str): Time dependent variables to use
+        alphas (List of float): weigth for each variable
+
+    Returns:
+        [type]: [description]
+    """
+    assert len(variables) == len(alphas)
+    
+    N = len(mtseries)
+    
+    # * assumes all mtseries are even and aligned
+    D = len(variables)
+    T = mtseries[0].timeLen
+    
+    D_k = np.zeros([D, N, N])
+    
+    for k in range(D):
+        varName = variables[k]
+        for i in range(N):
+            for j in range(N):
+                assert isinstance(mtseries[i], MTSerie)
+                if distanceType == DistanceType.EUCLIDEAN:
+                    D_k[k][i][j] = ts_euclidean_distance(mtseries[i].get_serie(varName), mtseries[j].get_serie(varName))
+                elif distanceType == DistanceType.DTW:
+                    D_k[k][i][j] = ts_dtw_distance(mtseries[i].get_serie(varName), mtseries[j].get_serie(varName))
+                elif distanceType == DistanceType.PDIST:
+                    D_k[k][i][j] = ts_mp_distance(mtseries[i].get_serie(varName), mtseries[j].get_serie(varName), L)
+    D_ks =  np.copy(D_k)
+    
+    for k in range(D):
+        D_k[k] = np.power(D_k[k], 2) * (alphas[k] ** 2)
+    D = np.sum(D_k, axis=0)
+    D = np.power(D, 1/2)
+    
+    return D, D_ks
 
 def euclidean_distance_matrix(mtseries, variables, alphas):
     """
@@ -22,7 +63,7 @@ def euclidean_distance_matrix(mtseries, variables, alphas):
     
     # * assumes all mtseries are even and aligned
     D = len(variables)
-    T = mtseries[0].timeLength
+    T = mtseries[0].timeLen
     
     D_k = np.zeros([D, N, N])
     
@@ -32,7 +73,7 @@ def euclidean_distance_matrix(mtseries, variables, alphas):
             for j in range(N):
                 assert isinstance(mtseries[i], MTSerie)
                 # TODO: maybe normalize
-                D_k[k][i][j] = ts_euclidean_distance(mtseries[i].getSerie(varName), mtseries[j].getSerie(varName))
+                D_k[k][i][j] = ts_euclidean_distance(mtseries[i].get_serie(varName), mtseries[j].get_serie(varName))
     
     D_ks =  np.copy(D_k)
     
@@ -61,7 +102,7 @@ def dtw_distance_matrix(mtseries, variables, alphas):
     
     # * assumes all mtseries are even and aligned
     D = len(variables)
-    T = mtseries[0].timeLength
+    T = mtseries[0].timeLen
     
     D_k = np.zeros([D, N, N])
     
@@ -70,8 +111,7 @@ def dtw_distance_matrix(mtseries, variables, alphas):
         for i in range(N):
             for j in range(N):
                 assert isinstance(mtseries[i], MTSerie)
-                # TODO: maybe normalize
-                D_k[k][i][j] = ts_dtw_distance(mtseries[i].getSerie(varName), mtseries[j].getSerie(varName))
+                D_k[k][i][j] = ts_dtw_distance(mtseries[i].get_serie(varName), mtseries[j].get_serie(varName))
     
     D_ks =  np.copy(D_k)
     
@@ -101,19 +141,18 @@ def mp_distance_matrix(mtseries, variables, alphas, L):
     
     # * assumes all mtseries are even and aligned
     D = len(variables)
-    T = mtseries[0].timeLength
+    T = mtseries[0].timeLen
     
     D_k = np.zeros([D, N, N])
     for k in range(D):
         varName = variables[k]
-        print(varName)
         for i in range(N):
             # print(i)
             for j in range(N):
                 # print(j)
                 assert isinstance(mtseries[i], MTSerie)
                 # TODO: maybe normalize
-                D_k[k][i][j] = ts_mp_distance(mtseries[i].getSerie(varName), mtseries[j].getSerie(varName), L)
+                D_k[k][i][j] = ts_mp_distance(mtseries[i].get_serie(varName), mtseries[j].get_serie(varName), L)
     
     D_ks =  np.copy(D_k)
     
