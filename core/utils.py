@@ -170,15 +170,11 @@ def allowed_downsample_rule(df):
     begin = df.index[0]
     end = df.index[-1]
     timeLength = (end - begin).to_numpy()
-    print(type(timeMedia))
-    print(type(timeLength))
     timeLengthUnits = _timedeltaUnits(timeLength)
     
     minUnitSize = 3
     
     units = []
-    print(timeMediaUnits)
-    print(timeLengthUnits)
     
     
     if timeMediaUnits['years'] != 0:

@@ -5,8 +5,6 @@ from .distances import DistanceType
 from .projections import distance_matrix, mds_projection
 from sklearn.cluster import SpectralClustering, KMeans, DBSCAN
 
-from core import mtserie
-
 class MTSerieDataset:
     """summary for [MTSerieDataset]
     
@@ -14,6 +12,17 @@ class MTSerieDataset:
         variables, although they can be uneven or misaligned with 
         respect to time
     """
+    @property
+    def allowedDownsampleRules(self)->list:
+        return self.first.downsample_rules()
+    
+    @property
+    def isDataDated(self) -> bool:
+        return self.first.isDataDated
+    
+    @property
+    def datetimes(self) -> np.array:
+        return self.first.datetimes
     
     @property
     def distanceMatrix(self) -> np.ndarray:
@@ -37,7 +46,7 @@ class MTSerieDataset:
     
     @property
     def first(self) -> MTSerie:
-        return self.mtseries[next(iter(self.mtseries))]
+        return self.procesedMTSeries[next(iter(self.procesedMTSeries))]
     
     @property
     def temporalVariables(self):
@@ -80,6 +89,8 @@ class MTSerieDataset:
         self._projections = {}
         self._clusters = {}
         self._clusterById = {}
+        self.minTemporalValues = {}
+        self.maxTemporalValues = {}
         
         super().__init__()
 
@@ -96,6 +107,19 @@ class MTSerieDataset:
         
         if self._isDataUniformInTime:
             self._isDataUniformInTime = self.timeLen == mtserie.timeLen
+        
+        mtserieMins = mtserie.minValues
+        mtserieMaxs = mtserie.maxValues
+        
+        if len(self.minTemporalValues) == 0 or len(self.maxTemporalValues) == 0:
+            self.minTemporalValues = mtserieMins
+            self.maxTemporalValues = mtserieMaxs
+        else:        
+            for varName in self.temporalVariables:
+                if mtserieMins[varName] < self.minTemporalValues[varName]:
+                    self.minTemporalValues[varName] = mtserieMins[varName]
+                if mtserieMaxs[varName] > self.maxTemporalValues[varName]:
+                    self.maxTemporalValues[varName] = mtserieMaxs[varName]
         
         assert self.categoricalLabels == mtserie.categoricalLabels
         assert self.numericalLabels == mtserie.numericalLabels
@@ -146,6 +170,14 @@ class MTSerieDataset:
         coords = mds_projection(self._distanceMatrix)
         for i in range(self.instanceLen):
             self._projections[self.ids[i]] = coords[i]
+            
+    def downsample_data(self, rule):
+        for i in range(self.instanceLen):
+            self.procesedMTSeries[self.ids[i]] = self.mtseries[self.ids[i]].resample(rule)
+            print(self.procesedMTSeries[self.ids[i]].timeLen)
+            
+        print(self.timeLen)
+        print()
         
     def cluster_projections(self, n_clusters):
         coords = np.array(list(self._projections.values()))
@@ -179,15 +211,19 @@ class MTSerieDataset:
 
     
     
-    def query_all_by_range(self, begin, end, toList = False):
+    def query_all_by_range(self, begin, end):
         assert self._isDataUniformInTime
-        assert isinstance(toList, bool)
         result = {}
-        for id, mtserie in self.mtseries.items():
+        for id, mtserie in self.procesedMTSeries.items():
             assert isinstance(mtserie, MTSerie)
             result[id] = mtserie.range_query(begin, end)
         return result
     
+    # def get_values(self, labels = [], procesed = True):
+    #     _labels = labels
+    #     if len(_labels) == 0:
+    #         _labels = self.temporalVariables
+        
     # ! deprecated
     def getAllMetadata(self):
         result = {}
@@ -228,7 +264,11 @@ class MTSerieDataset:
         self._variablesLimits[varName] = [minValue, maxValue]
     
     def removeVariable(self, varName):
-        for mtserie in self._timeSeries.values():
+        for mtserie in self.get_mtseries(procesed=False):
             assert isinstance(mtserie, MTSerie)
-            mtserie.removeTimeSerie(varName)
+            mtserie.remove_serie(varName)
+        
+        for mtserie in self.get_mtseries(procesed=True):
+            assert isinstance(mtserie, MTSerie)
+            mtserie.remove_serie(varName)
         

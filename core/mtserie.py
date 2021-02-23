@@ -72,7 +72,22 @@ class MTSerie:
         returns the number of time-dependent variables
     
     """
+    @property
+    def index(self) -> np.ndarray:
+        return self.dataframe.index.to_numpy()
+    @property
+    def minValues(self) -> dict:
+        values = {}
+        for varName in self.labels:
+            values[varName] = self.dataframe[varName].min()
+        return values
     
+    @property
+    def maxValues(self) -> dict:
+        values = {}
+        for varName in self.labels:
+            values[varName] = self.dataframe[varName].max()
+        return values
     
     @property
     def timeLen(self) -> int:
@@ -172,7 +187,8 @@ class MTSerie:
         return self.dataframe[label].to_numpy()
     
     def remove_serie(self, label):
-        del self.dataframe.columns[label]
+        if label in self.labels:
+            del self.dataframe[label]
     
     def zNormalize(self, labels = []):
         _labels = labels
@@ -249,9 +265,14 @@ class MTSerie:
         
         _labels = np.array(list(X.keys()))
         
+        print("index")
+        print(index)
         if len(index) != 0:
             _index = to_np_array(index)
+            print("holi")
+            print(type(_index[0]))
             if type(_index[0]) == np.datetime64:
+                print("Index tipo datetime")
                 mtserie.indexType = IndexType.DATETIME
             else:
                 mtserie.indexType = IndexType.CATEGORICAL
