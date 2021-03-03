@@ -163,7 +163,7 @@ class MTSerieDataset:
     
         self._distanceMatrix, self._distanceMatrix_k = distance_matrix(
             self.get_mtseries(procesed=procesed), variables=_variables, 
-            alphas=_alphas, distanceType=distanceType
+            alphas=_alphas, distanceType=distanceType, L=L
             )
     
     def compute_projection(self):
@@ -271,4 +271,12 @@ class MTSerieDataset:
         for mtserie in self.get_mtseries(procesed=True):
             assert isinstance(mtserie, MTSerie)
             mtserie.remove_serie(varName)
+    
+    def values(self, procesed=True):
+        assert self._isDataUniformInTime
+        assert self._isDataUniformInVariables
+        values = []
+        for serie in self.get_mtseries(procesed=procesed):
+            values = values + [serie.get_serie(serie.labels[0])]
         
+        return np.array(values)

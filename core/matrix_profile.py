@@ -1,6 +1,8 @@
 import math
 import numpy as np
 from .utils import is_array_like, zNormalize, clean_nan_inf, to_np_array
+from matrixprofile.algorithms.pairwise_dist import pairwise_dist
+from scipy.spatial.distance import squareform
 import mass_ts as mass_ts
 
 
@@ -256,4 +258,39 @@ def calc_MPdist(joinMatrixProfile, dataLength):
         return matrixProfile[k]
     else:
         return matrixProfile[len(matrixProfile) - 1]
+
+def mp_distance_matrix(mtseries, variables, alphas, L, n_jobs):
+    assert len(variables) == len(alphas)
+    
+    N = len(mtseries)
+    
+    # * assumes all mtseries are even and aligned
+    d = len(variables)
+    T = mtseries[0].timeLen
+    
+    D_k = np.zeros([d, N, N])
+    
+    values = []
+    for k in range(d):
+        for serie in mtseries:
+            values = values + [serie.get_serie(variables[k])]
+        values =  np.array(values)
+        dm = pairwise_dist(values, L, n_jobs=n_jobs)
+        print(L)
+        print("dm")
+        print(dm)
+        D_k[k] = squareform(dm)
+        
+    D_ks =  np.copy(D_k)
+    
+    for k in range(d):
+        D_k[k] = np.power(D_k[k], 2) * (alphas[k] ** 2)
+    D = np.sum(D_k, axis=0)
+    D = np.power(D, 1/2)
+    
+    return D, D_ks
+
+    
+    
+    
     

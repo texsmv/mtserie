@@ -1,7 +1,75 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import json
 from dateutil import parser
 
+
+def plot_discords(pattern , discords, L, ax):
+    
+    colori = 0
+    colors = 'rgbcm'
+    ms = discords
+    l = "Discords"
+    # for ms,l in zip(discords,labels):
+    c =colors[colori % len(colors)]
+    starts = list(ms)
+    ends = [min(s + L,len(pattern)-1) for s in starts]
+    ax.plot(starts, pattern[starts],  c +'o',  label=l)
+    ax.plot(ends, pattern[ends],  c +'o', markerfacecolor='none')
+    for nn in ms:
+        ax.plot(range(nn,nn+L),pattern[nn:nn+L], c , linewidth=2)
+    colori += 1
+
+    ax.plot(pattern, 'k', linewidth=1, label="data")
+    ax.legend()
+
+def plot_motifs(pattern , mtfs, L, labels, ax):
+
+    colori = 0
+    colors = 'rgbcm'
+    for ms,l in zip(mtfs,labels):
+        c =colors[colori % len(colors)]
+        starts = list(ms)
+        ends = [min(s + L,len(pattern)-1) for s in starts]
+        ax.plot(starts, pattern[starts],  c +'o',  label=l)
+        ax.plot(ends, pattern[ends],  c +'o', markerfacecolor='none')
+        for nn in ms:
+            ax.plot(range(nn,nn+L),pattern[nn:nn+L], c , linewidth=2)
+        colori += 1
+
+    ax.plot(pattern, 'k', linewidth=1, label="data")
+    ax.legend()
+
+def plotMotifs(pattern, mp, mtfs, motif_d, L):
+    mp_adj = np.append(mp[0],np.zeros(L-1)+np.nan)
+    #Plot the signal data
+    fig, (ax1, ax2, ax3) = plt.subplots(3,1,sharex=True,figsize=(20,10))
+    ax1.plot(np.arange(len(pattern)),pattern, label="Synthetic Data")
+    ax1.set_ylabel('Signal', size=22)
+
+    #Plot the Matrix Profile
+    ax2.plot(np.arange(len(mp_adj)),mp_adj, label="Matrix Profile", color='red')
+    ax2.set_ylabel('Matrix Profile', size=22)
+
+    #Plot the Motifs
+    plot_motifs(pattern, mtfs, L, [f"{md:.3f}" for md in motif_d], ax3)
+    ax3.set_ylabel('Motifs', size=22)
+
+
+def plotDiscords(pattern, mp, discords, L):
+    mp_adj = np.append(mp[0],np.zeros(L-1)+np.nan)
+    #Plot the signal data
+    fig, (ax1, ax2, ax3) = plt.subplots(3,1,sharex=True,figsize=(20,10))
+    ax1.plot(np.arange(len(pattern)),pattern, label="Synthetic Data")
+    ax1.set_ylabel('Signal', size=22)
+
+    #Plot the Matrix Profile
+    ax2.plot(np.arange(len(mp_adj)),mp_adj, label="Matrix Profile", color='red')
+    ax2.set_ylabel('Matrix Profile', size=22)
+
+    #Plot the Motifs
+    plot_discords(pattern, discords, L, ax3)
+    ax3.set_ylabel('Discords', size=22)
 
 def is_array_like(a):
     """

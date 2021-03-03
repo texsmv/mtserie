@@ -3,7 +3,11 @@ from .utils import allowed_downsample_rule
 import pandas as pd
 import numpy as np
 import copy
+import matrixprofile as mp
 from .utils import is_array_like, to_np_array
+from .matrixprofile import matrixProfile as mpts
+from .matrixprofile.motifs import motifs
+from .matrixprofile.discords import discords
 from enum import Enum
 
 class IndexType(Enum):
@@ -150,6 +154,8 @@ class MTSerie:
         self.info = {}
         self.categoricalFeatures = {}
         self.numericalFeatures = {}
+        self.mp = {}
+        self.mp_window_size = None
         self._indexType = IndexType.INT
         
         super().__init__()
@@ -197,6 +203,24 @@ class MTSerie:
         for label in _labels:
             self.dataframe[label] = (self.dataframe[label] - self.dataframe[label].mean()) / self.dataframe[label].std(ddof=0)
     
+    def compute_matrix_profile(self, L):
+        for varName in self.labels:
+            print(varName)
+            self.mp[varName] = mpts.stomp(self.get_serie(varName), L)
+        self.mp_window_size = L
+        
+    def get_variable_motifs(self, label, maxMotifs = 8):
+        return motifs(self.get_serie(label), self.mp[label], maxMotifs)
+    
+    def analize_var_matrix_profile(self, label):
+        profile, figures = mp.analyze(self.get_serie(label))
+        
+    def get_discords(self, varName):
+        mp, _ = np.copy(self.mp[varName])
+        mp = np.append(mp,np.zeros(self.mp_window_size-1)+np.nan)
+        ex_zone = self.mp_window_size
+        anoms = discords(mp, ex_zone, k=2)
+        return anoms
         
     # !deprecated
     def normalize_data(self):
@@ -204,11 +228,14 @@ class MTSerie:
             x = self.tseries[variableName]
             self.tseries[variableName] = (x-min(x))/(max(x)-min(x))
     
-    def plot(self, labels = None):
+    def plot(self, labels = None, y_lim = None):
+        ax = None
         if is_array_like(labels):
-            self.dataframe[labels].plot()
+            ax = self.dataframe[labels].plot()
         else:
-            self.dataframe.plot()
+            ax = self.dataframe.plot()
+        if y_lim != None:
+            ax.set_ylim(y_lim[0], y_lim[1])
     
     @staticmethod 
     def fromDArray(X, index = [], labels = [], info = {}, categoricalFeatures = {}, numericalFeatures = {}):
