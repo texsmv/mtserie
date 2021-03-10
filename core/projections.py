@@ -4,6 +4,9 @@ from .mtserie import MTSerie
 from .distances import ts_euclidean_distance, ts_dtw_distance, ts_mp_distance, DistanceType
 from .matrix_profile import mp_distance_matrix
 
+
+
+
 def distance_matrix(mtseries, variables = [], alphas = [], distanceType = DistanceType.EUCLIDEAN, L = 10):
     """
     Gets Distance Matrix of multivariate time series using euclidean distance on the selected variables and using the provided alphas
@@ -174,3 +177,4 @@ def mds_projection(D):
     mds = manifold.MDS(n_components=2, dissimilarity="precomputed", random_state=6)
     results = mds.fit(D)
     return results.embedding_ 
+

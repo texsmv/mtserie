@@ -124,6 +124,8 @@ class MTSerieDataset:
         assert self.categoricalLabels == mtserie.categoricalLabels
         assert self.numericalLabels == mtserie.numericalLabels
     
+    
+    
     def get_mtseries(self, ids = [], procesed = True):
         if len(ids) == 0:
             if procesed:
@@ -136,12 +138,12 @@ class MTSerieDataset:
             else:
                 return [self.mtseries[id] for id in ids]
     
-    def get_mtserie(self, id, procesed = True):
+    def get_mtserie(self, id, procesed = True)->MTSerie:
+
         if procesed:
             return self.procesedMTSeries[id]
         else:
             return self.mtseries[id]
-    
     
     
     def compute_distance_matrix(self, variables = [], alphas = [], distanceType = DistanceType.EUCLIDEAN, L = 10, procesed = True):
@@ -174,10 +176,6 @@ class MTSerieDataset:
     def downsample_data(self, rule):
         for i in range(self.instanceLen):
             self.procesedMTSeries[self.ids[i]] = self.mtseries[self.ids[i]].resample(rule)
-            print(self.procesedMTSeries[self.ids[i]].timeLen)
-            
-        print(self.timeLen)
-        print()
         
     def cluster_projections(self, n_clusters):
         coords = np.array(list(self._projections.values()))
@@ -212,7 +210,8 @@ class MTSerieDataset:
     
     
     def query_all_by_range(self, begin, end):
-        assert self._isDataUniformInTime
+        #  todo check this
+        # assert self._isDataUniformInTime
         result = {}
         for id, mtserie in self.procesedMTSeries.items():
             assert isinstance(mtserie, MTSerie)
@@ -253,6 +252,16 @@ class MTSerieDataset:
                 elif currMax < maxValue:
                     currMax = maxValue
             self._variablesLimits[varName] = [currMin, currMax]
+            
+    def get_datetime_common_range(self, procesed = True):
+        begin_dates = []
+        last_dates = []
+        for mtserie in self.get_mtseries(procesed= procesed):
+            assert isinstance (mtserie, MTSerie)
+            assert mtserie.isDataDated
+            begin_dates = begin_dates + [mtserie.datetimes[0]]
+            last_dates = last_dates + [mtserie.datetimes[-1]]
+        return (max(begin_dates), min(last_dates))
     # ! deprecated
     def getVariablesLimits(self):
         return self._variablesLimits
@@ -272,11 +281,11 @@ class MTSerieDataset:
             assert isinstance(mtserie, MTSerie)
             mtserie.remove_serie(varName)
     
-    def values(self, procesed=True):
+    def values(self, procesed=True)-> np.ndarray:
         assert self._isDataUniformInTime
         assert self._isDataUniformInVariables
-        values = []
+        mtseries_values = []
         for serie in self.get_mtseries(procesed=procesed):
-            values = values + [serie.get_serie(serie.labels[0])]
+            mtseries_values = mtseries_values + [serie.values]
         
-        return np.array(values)
+        return np.array(mtseries_values)

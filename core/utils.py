@@ -198,8 +198,6 @@ def subsetSeparationRanking(D_list, u_ind, v_ind):
         
         den = s_u + s_v
         
-        print("num: " + str(num) + " den: " + str(den))
-        
         
         j_k = num / (den + 1e-17)
         

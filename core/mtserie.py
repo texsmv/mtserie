@@ -77,6 +77,9 @@ class MTSerie:
     
     """
     @property
+    def values(self) -> np.ndarray:
+        return self.dataframe.values
+    @property
     def index(self) -> np.ndarray:
         return self.dataframe.index.to_numpy()
     @property
@@ -205,7 +208,6 @@ class MTSerie:
     
     def compute_matrix_profile(self, L):
         for varName in self.labels:
-            print(varName)
             self.mp[varName] = mpts.stomp(self.get_serie(varName), L)
         self.mp_window_size = L
         
@@ -292,14 +294,9 @@ class MTSerie:
         
         _labels = np.array(list(X.keys()))
         
-        print("index")
-        print(index)
         if len(index) != 0:
             _index = to_np_array(index)
-            print("holi")
-            print(type(_index[0]))
             if type(_index[0]) == np.datetime64:
-                print("Index tipo datetime")
                 mtserie.indexType = IndexType.DATETIME
             else:
                 mtserie.indexType = IndexType.CATEGORICAL
@@ -315,3 +312,18 @@ class MTSerie:
         
         return mtserie
     
+    @staticmethod 
+    def fromPandas(D, info = {}, categoricalFeatures = {}, numericalFeatures = {}):
+        assert isinstance(D, pd.DataFrame)
+        mtserie = MTSerie()
+        
+        assert isinstance(mtserie, MTSerie)
+        
+        mtserie.dataframe = D
+        mtserie.info = info
+        mtserie.categoricalFeatures = categoricalFeatures
+        mtserie.numericalFeatures = numericalFeatures
+        
+        return mtserie
+    
+        
