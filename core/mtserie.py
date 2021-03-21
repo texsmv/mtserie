@@ -240,7 +240,7 @@ class MTSerie:
             ax.set_ylim(y_lim[0], y_lim[1])
     
     @staticmethod 
-    def fromDArray(X, index = [], labels = [], info = {}, categoricalFeatures = {}, numericalFeatures = {}):
+    def fromDArray(X, index = [], labels = [], info = {}, categoricalFeatures = {}, numericalFeatures = {}) :
         assert is_array_like(X)
         assert is_array_like(index)
         assert is_array_like(labels)

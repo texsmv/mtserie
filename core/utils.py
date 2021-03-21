@@ -204,6 +204,48 @@ def subsetSeparationRanking(D_list, u_ind, v_ind):
         js = js + [j_k]
     return js
 
+def fishersDiscriminantRanking(D_ks, u_ind, v_ind):
+    assert isinstance(D_ks, dict)
+    
+    n = len(u_ind)
+    m = len(v_ind)
+    js = {}
+    for varName in D_ks.keys():
+        D_k = D_ks[varName]
+        firstTerm = 0
+        for i in u_ind:
+            for j in v_ind:
+                firstTerm = firstTerm + D_k[i][j]
+        firstTerm =  firstTerm / (n * m)
+        
+        s_u = 0
+        secondTerm = 0
+        for i in u_ind:
+            for j in u_ind:
+                secondTerm = secondTerm + D_k[i][j]
+        s_u = secondTerm / (2 * n)
+        secondTerm =  secondTerm / (2 * n * n)
+        
+        s_v = 0
+        thirdTerm = 0
+        for i in v_ind:
+            for j in v_ind:
+                thirdTerm = thirdTerm + D_k[i][j]
+        s_v = thirdTerm / (2 * m)
+        thirdTerm =  thirdTerm / (2 * m * m)
+        
+        
+        num = firstTerm - secondTerm - thirdTerm
+        
+        den = s_u + s_v
+        
+        
+        j_k = num / (den + 1e-17)
+        
+        js[varName] = j_k
+        # js = js + [j_k]
+    return js
+
 def _timedelta_unit_to_resample_rule(unit):
     if unit == 'Y':
         return 'A'

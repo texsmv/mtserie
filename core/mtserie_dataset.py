@@ -20,9 +20,9 @@ class MTSerieDataset:
     def isDataDated(self) -> bool:
         return self.first.isDataDated
     
-    @property
-    def datetimes(self) -> np.array:
-        return self.first.datetimes
+    def get_datetimes(self, procesed = True) -> np.array:
+        return self.get_first(procesed).datetimes
+    datetimes = property(get_datetimes)
     
     @property
     def distanceMatrix(self) -> np.ndarray:
@@ -44,9 +44,13 @@ class MTSerieDataset:
     def ids(self) -> list:
         return list(self.mtseries.keys())
     
-    @property
-    def first(self) -> MTSerie:
-        return self.procesedMTSeries[next(iter(self.procesedMTSeries))]
+    
+    def get_first(self, procesed = True) -> MTSerie:
+        if procesed:
+            return self.procesedMTSeries[next(iter(self.procesedMTSeries))]
+        else:
+            return self.mtseries[next(iter(self.mtseries))]
+    first = property(get_first)
     
     @property
     def temporalVariables(self):
@@ -60,13 +64,13 @@ class MTSerieDataset:
             return self.first.variablesLen
         return [mtserie.variablesLen for mtserie in self.mtseries.values()]
     
-    @property
-    def timeLen(self) -> int:
+    def get_timeLen(self,procesed = True) -> int:
         if self._isDataUniformInTime:
-            return self.first.timeLen
-        return [mtserie.timeLen for mtserie in self.mtseries.values()]
+            return self.get_first(procesed).timeLen
+        return [mtserie.timeLen for mtserie in self.get_mtseries(procesed=procesed)]
+    timeLen = property(get_timeLen)    
     
-    @property 
+    @property
     def instanceLen(self):
         return len(self.mtseries)
     
@@ -85,6 +89,10 @@ class MTSerieDataset:
         self._isDataUniformInVariables = True
         self._distanceMatrix = None
         self._distanceMatrix_k = None
+        self.oldCoords = None
+
+        
+        self.d_k = {}
         self._variablesLimits = {}
         self._projections = {}
         self._clusters = {}
@@ -126,7 +134,7 @@ class MTSerieDataset:
     
     
     
-    def get_mtseries(self, ids = [], procesed = True):
+    def get_mtseries(self, procesed = True, ids = []):
         if len(ids) == 0:
             if procesed:
                 return list(self.procesedMTSeries.values())
@@ -145,6 +153,21 @@ class MTSerieDataset:
         else:
             return self.mtseries[id]
     
+    def compute_k_distance_matrix(self, variables = [], alphas = {}, distanceType = DistanceType.EUCLIDEAN, L = 10, procesed = True):
+        _variables = variables
+        if len(variables) == 0: 
+            _variables = self.temporalVariables
+        
+        _alphas = alphas
+        if len(alphas) == 0:
+            _alphas = {var: 1.0 for var in variables}
+            
+        assert len(_alphas) == len(_variables)
+    
+        self._distanceMatrix, self._distanceMatrix_k = distance_matrix(
+            self.get_mtseries(procesed=procesed), variables=_variables, 
+            alphas=_alphas, distanceType=distanceType, L=L
+            )
     
     def compute_distance_matrix(self, variables = [], alphas = [], distanceType = DistanceType.EUCLIDEAN, L = 10, procesed = True):
         '''
@@ -168,16 +191,22 @@ class MTSerieDataset:
             alphas=_alphas, distanceType=distanceType, L=L
             )
     
-    def compute_projection(self):
-        coords = mds_projection(self._distanceMatrix)
+    
+    # def compute_projection(self):
+    #     coords = mds_projection(self._distanceMatrix)
+    #     for i in range(self.instanceLen):
+    #         self._projections[self.ids[i]] = coords[i]
+            
+    def compute_projection(self, D):
+        coords = mds_projection(D)
         for i in range(self.instanceLen):
             self._projections[self.ids[i]] = coords[i]
             
     def downsample_data(self, rule):
         for i in range(self.instanceLen):
             self.procesedMTSeries[self.ids[i]] = self.mtseries[self.ids[i]].resample(rule)
-        
-    def cluster_projections(self, n_clusters):
+            
+    def cluster_projections(self, n_clusters, coords):
         coords = np.array(list(self._projections.values()))
         
         # ! spectral clustering not working
@@ -197,15 +226,47 @@ class MTSerieDataset:
         k_means.fit(coords)
         labels = k_means.predict(coords)
         
-        self._clusters = {}
+        clusters = {}
         clusterLabels = np.unique(labels)
         for clusterLabel in clusterLabels:
             clusterIds = []
             for i in range(self.instanceLen):
                 if labels[i] == clusterLabel:
                     clusterIds = clusterIds + [self.ids[i]]
-                    self._clusterById[self.ids[i]] = clusterLabel
-            self._clusters[clusterLabel] = clusterIds
+                    # self._clusterById[self.ids[i]] = clusterLabel
+            clusters[clusterLabel] = clusterIds
+        return clusters
+
+        
+    # def cluster_projections(self, n_clusters):
+    #     coords = np.array(list(self._projections.values()))
+        
+    #     # ! spectral clustering not working
+    #     # clustering = SpectralClustering(n_clusters=40,
+    #     #                         assign_labels="discretize",
+    #     #                         n_neighbors=2,
+    #     #                         random_state=0).fit(coords)
+    #     # return clustering.labels_
+
+    #     # * dbscan
+    #     # print(coords.shape)
+    #     # clustering = DBSCAN(eps=0.1, min_samples=2).fit(coords)
+    #     # fit model and predict clusters
+    #     # clusters = clustering.labels_
+        
+    #     k_means = KMeans(random_state=0, n_clusters=n_clusters)
+    #     k_means.fit(coords)
+    #     labels = k_means.predict(coords)
+        
+    #     self._clusters = {}
+    #     clusterLabels = np.unique(labels)
+    #     for clusterLabel in clusterLabels:
+    #         clusterIds = []
+    #         for i in range(self.instanceLen):
+    #             if labels[i] == clusterLabel:
+    #                 clusterIds = clusterIds + [self.ids[i]]
+    #                 self._clusterById[self.ids[i]] = clusterLabel
+    #         self._clusters[clusterLabel] = clusterIds
 
     
     
@@ -217,12 +278,17 @@ class MTSerieDataset:
             assert isinstance(mtserie, MTSerie)
             result[id] = mtserie.range_query(begin, end)
         return result
+
+    def get_mtseries_in_range(self, begin, end, ids = [], procesed = True)->list:
+        _ids = ids
+        if len(_ids) == 0:
+            _ids = self.ids
+        result = {}
+        for id in _ids:
+            mtserie = self.get_mtserie(id, procesed=procesed)
+            result[id] = mtserie.range_query(mtserie.index[begin], mtserie.index[end])
+        return result
     
-    # def get_values(self, labels = [], procesed = True):
-    #     _labels = labels
-    #     if len(_labels) == 0:
-    #         _labels = self.temporalVariables
-        
     # ! deprecated
     def getAllMetadata(self):
         result = {}

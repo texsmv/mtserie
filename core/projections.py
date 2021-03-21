@@ -1,10 +1,37 @@
 import numpy as np
+from numpy.core.fromnumeric import var
 from sklearn import manifold
 from .mtserie import MTSerie
 from .distances import ts_euclidean_distance, ts_dtw_distance, ts_mp_distance, DistanceType
 from .matrix_profile import mp_distance_matrix
 
 
+def compute_k_distance_matrixes(mtseries, variables = [], distanceType = DistanceType.EUCLIDEAN, L = 10):
+    # todo restore mpdist, maybe
+    # if distanceType == DistanceType.PDIST:
+    #     return mp_distance_matrix(mtseries, variables, alphas, L, 8)
+    N = len(mtseries)
+    # * assumes all mtseries are even and aligned
+    D_k = {}
+    for varName in variables:
+        D_k[varName] = np.zeros([N, N])
+        for i in range(N):
+            for j in range(N):
+                assert isinstance(mtseries[i], MTSerie)
+                if distanceType == DistanceType.EUCLIDEAN:
+                    D_k[varName][i][j] = ts_euclidean_distance(mtseries[i].get_serie(varName), mtseries[j].get_serie(varName))
+                elif distanceType == DistanceType.DTW:
+                    D_k[varName][i][j] = ts_dtw_distance(mtseries[i].get_serie(varName), mtseries[j].get_serie(varName))
+        D_k[varName] = np.power(D_k[varName], 2)
+    return D_k
+    
+
+def compute_distance_matrix(D_k,alphas,N):
+    D = np.zeros([N,N])
+    for varName in list(D_k.keys()):
+        D = D + (D_k[varName] * (alphas[varName] ** 2))
+    D = np.power(D, 1/2)
+    return D
 
 
 def distance_matrix(mtseries, variables = [], alphas = [], distanceType = DistanceType.EUCLIDEAN, L = 10):
